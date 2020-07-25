@@ -1,0 +1,89 @@
+#! /usr/bin/bash
+#
+# After executing
+#
+# nmcli connection import type openvpn file [filename]
+#
+# run this script passing the name of the new connection as the first
+# parameter. The script will try to autodetect the connection name of
+# the router, this is used to optionally attach the VPN connection as
+# the secondary connection, to automatically bring it up.
+
+conn="$1"
+if test "$conn" = ""
+then
+    echo "Usage: $0 connection [main]"
+    exit 1
+fi
+
+main="$2"
+
+if test -z "$main"
+then
+    for c in `nmcli -t connection show | cut -d: -f1`
+    do
+	gw="`nmcli -t --fields ipv4.gateway connection show $c | cut -d: -f2`"
+	if test -n "$gw"
+	then
+	    if test -z "$main"
+	    then
+		main="$c"
+	    else
+		main=""
+		break
+	    fi
+	fi
+    done
+    if test -n "$main"
+    then
+	echo "Using \"$main\" as the primary connection"
+    fi
+fi
+
+uuid="`nmcli -t --fields connection.uuid connection show $conn | cut -d: -f2`"
+
+if test -z "$uuid"
+then
+    echo "No such connection: $conn"
+    exit 1
+fi
+
+echo -n 'VPN username: '
+read USERNAME
+trap 'stty echo; exit 1' 1 2 3 13 14 15
+stty -echo
+echo -n 'VPN password: '
+read PASSWORD
+stty echo
+echo ""
+
+opts=""
+
+echo -n "Use VPN DNS [Y]? "
+read ANS
+case "$ANS" in
+    n*|N*)
+	opts="ipv4.ignore-auto-dns yes $opts"
+	;;
+    *)
+	opts="ipv4.ignore-auto-dns no $opts"
+	;;
+esac
+
+nmcli connection modify "$conn" $opts \
+    +vpn.data password-flags=0 \
+    vpn.user-name "$USERNAME" \
+    vpn.secrets password="$PASSWORD" \
+|| exit 1
+
+echo -n "Autoconnect [Y}? "
+read ANS
+
+case "$ANS" in
+    n*|N*)
+	nmcli connection modify $main -connection.secondaries $uuid
+	;;
+    *)
+	nmcli connection modify $main +connection.secondaries $uuid
+	;;
+esac
