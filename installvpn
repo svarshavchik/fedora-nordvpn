@@ -1,4 +1,4 @@
-#! /usr/bin/bash
+#!/usr/bin/bash
 #
 # After executing
 #
@@ -20,9 +20,14 @@ main="$2"
 
 if test -z "$main"
 then
-    for c in `nmcli -t connection show | cut -d: -f1`
+    for c in `nmcli -t connection show | cut -d: -f2`
     do
-	gw="`nmcli -t --fields ipv4.gateway connection show $c | cut -d: -f2`"
+	gw="`nmcli -t --fields ip4.gateway connection show \"$c\" | cut -d: -f2`"
+	if test -z "$gw"
+        then
+	    gw="`nmcli -t --fields ip6.gateway connection show \"$c\" | cut -d: -f2`"
+	fi
+
 	if test -n "$gw"
 	then
 	    if test -z "$main"
@@ -37,10 +42,13 @@ then
     if test -n "$main"
     then
 	echo "Using \"$main\" as the primary connection"
+    else
+        echo "Cannot determine main connection."
+        exit 1
     fi
 fi
 
-uuid="`nmcli -t --fields connection.uuid connection show $conn | cut -d: -f2`"
+uuid="`nmcli -t --fields connection.uuid connection show \"$conn\" | cut -d: -f2`"
 
 if test -z "$uuid"
 then
@@ -76,14 +84,14 @@ nmcli connection modify "$conn" $opts \
     vpn.secrets password="$PASSWORD" \
 || exit 1
 
-echo -n "Autoconnect [Y}? "
+echo -n "Autoconnect [Y]? "
 read ANS
 
 case "$ANS" in
     n*|N*)
-	nmcli connection modify $main -connection.secondaries $uuid
+	nmcli connection modify "$main" -connection.secondaries $uuid
 	;;
     *)
-	nmcli connection modify $main +connection.secondaries $uuid
+	nmcli connection modify "$main" +connection.secondaries $uuid
 	;;
 esac

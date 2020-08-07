@@ -69,8 +69,9 @@ NAME                    UUID                                  TYPE      DEVICE
 WAN                     4ca5fc24-7299-3ddc-8760-81522258369c  ethernet  enp6s0
 ```
 
-If only one connection is listed, this must be it. Otherwise you need to
-figure it out.
+If only one connection is listed, this must be it. Otherwise you may need to
+figure it out if the server is not currently connected, or if it is
+multi-homed.
 
 2) Which VPN server to connect to.
 
